@@ -22,8 +22,7 @@ You never need to create folders, hand-edit CSV files, or run commands manuallyâ
   ```
 
 ### Step 2: Preview the Interactive Dashboard
-1. In the left file tree, click **`dashboard.html`** to open the built-in HTML preview directly (no external browser or local server required).
-2. Because this template starts clean, click **`Demo Preview`** in the top-right corner of the dashboard to preview the full frosted-glass Bento layout, pipeline charts, Kanban board, and performance review with read-only sample data (your local CSVs stay untouched).
+In the left file tree, click **`dashboard.html`** to open the built-in HTML preview directly (no external browser or local server required). You can switch between **Overview**, **Calendar** (Table / Board), **Performance**, and **Next Actions**, filter by platform, or search content titles.
 
 ### Step 3: Send Your First Prompt to the Agent
 Open the **Agent Chat** panel and copy-paste one of the starting prompts below (or attach a local product brief / notes / CSV / XLSX file):

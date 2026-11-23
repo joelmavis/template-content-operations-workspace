@@ -256,15 +256,17 @@ body{
   box-shadow:0 8px 20px rgba(36,25,20,.24);
 }
 .icon-btn{
-  width:36px;
-  height:36px;
+  width:38px;
+  height:38px;
   border-radius:999px;
   display:grid;
   place-items:center;
-  background:rgba(255,255,255,.72);
-  border:1px solid rgba(255,255,255,.85);
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(255,255,255,.88);
   color:var(--ink-soft);
+  box-shadow:0 4px 12px rgba(114,74,48,.06);
 }
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .icon-btn:hover{background:#fff;color:var(--ink);transform:translateY(-1px)}
 .search-box{
   display:none;
@@ -272,8 +274,8 @@ body{
   background:rgba(255,255,255,.88);
   border:1px solid rgba(255,255,255,.95);
   border-radius:999px;
-  padding:0 12px;
-  height:36px;
+  padding:0 14px;
+  height:38px;
 }
 .search-box.open{display:inline-flex}
 .search-box input{
@@ -282,21 +284,8 @@ body{
   background:transparent;
   font:13px var(--font);
   color:var(--ink);
-  width:155px;
+  width:165px;
 }
-.demo-banner{
-  display:none;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:10px 16px;
-  border-radius:16px;
-  background:linear-gradient(135deg,rgba(42,31,25,.92),rgba(24,18,15,.94));
-  color:#f9efe8;
-  font-size:12.5px;
-}
-.demo-banner.show{display:flex}
-.demo-banner b{color:#f0a875}
 /* Bento Grid & 02 Light Follow + 3D Tilt */
 .bento{
   display:grid;
@@ -747,15 +736,11 @@ tbody tr:hover td{background:rgba(255,255,255,.62)}
         <div class="search-box" id="search-box">
           <input type="search" id="search-input" placeholder="Filter titles..." aria-label="Filter content titles">
         </div>
-        <button type="button" class="icon-btn" id="search-toggle" title="Search content" aria-label="Search content">⌕</button>
-        <button type="button" class="pill-btn" id="demo-toggle">Demo Preview</button>
+        <button type="button" class="icon-btn" id="search-toggle" title="Search content" aria-label="Search content">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        </button>
       </div>
     </header>
-
-    <div class="demo-banner" id="demo-banner">
-      <span><b>Demo Preview Active</b> — Read-only sample view. Your local CSV files remain untouched.</span>
-      <span class="muted" style="color:rgba(250,243,238,.72)">Click "Exit Demo" anytime</span>
-    </div>
 
     <div class="bento" id="bento">
       <!-- KPI Row -->
@@ -795,7 +780,7 @@ tbody tr:hover td{background:rgba(255,255,255,.62)}
             <button type="button" class="expand-btn" title="Expand module">⤢</button>
           </div>
         </div>
-        <div class="hide-mini" id="pipeline-body"><div class="empty"><div class="empty-dot"></div><div><div class="empty-msg">No content records yet, so no status distribution is shown.</div><p class="empty-hint">Click Demo Preview above to inspect a populated pipeline, or describe a goal to your Agent.</p></div></div></div>
+        <div class="hide-mini" id="pipeline-body"><div class="empty"><div class="empty-dot"></div><div><div class="empty-msg">No content records yet, so no status distribution is shown.</div><p class="empty-hint">Describe a goal or attach local materials in Agent chat to populate the pipeline.</p></div></div></div>
       </section>
 
       <section class="card card-dark span-5" data-tilt data-expandable data-groups="overview">
@@ -829,8 +814,8 @@ tbody tr:hover td{background:rgba(255,255,255,.62)}
           </div>
         </div>
         <div class="hide-mini">
-          <div id="calendar-table-wrap"><div class="empty"><div class="empty-dot"></div><div><div class="empty-msg">No upcoming content yet. Describe a goal or attach local materials to create the first plan.</div><p class="empty-hint">Tip: Click Demo Preview at the top right to see how this board looks with live campaigns.</p></div></div></div>
-          <div class="kanban" id="calendar-kanban"><div class="empty"><div class="empty-dot"></div><div><div class="empty-msg">No upcoming content yet. Describe a goal or attach local materials to create the first plan.</div><p class="empty-hint">Tip: Click Demo Preview at the top right to see how this board looks with live campaigns.</p></div></div></div>
+          <div id="calendar-table-wrap"><div class="empty"><div class="empty-dot"></div><div><div class="empty-msg">No upcoming content yet. Describe a goal or attach local materials to create the first plan.</div><p class="empty-hint">Send your first goal or attach a product brief in Agent chat to populate this calendar.</p></div></div></div>
+          <div class="kanban" id="calendar-kanban"><div class="empty"><div class="empty-dot"></div><div><div class="empty-msg">No upcoming content yet. Describe a goal or attach local materials to create the first plan.</div><p class="empty-hint">Send your first goal or attach a product brief in Agent chat to populate this calendar.</p></div></div></div>
         </div>
       </section>
 
@@ -883,30 +868,11 @@ tbody tr:hover td{background:rgba(255,255,255,.62)}
   const searchToggle = document.getElementById('search-toggle');
   const searchBox = document.getElementById('search-box');
   const searchInput = document.getElementById('search-input');
-  const demoBtn = document.getElementById('demo-toggle');
-  const demoBanner = document.getElementById('demo-banner');
   const toast = document.getElementById('toast');
 
   let activeSection = 'overview';
   let activePlatform = 'ALL';
   let searchQuery = '';
-  let demoMode = false;
-
-  const LIVE_HTML = {
-    kpiAll: document.getElementById('kpi-all').textContent,
-    kpiMake: document.getElementById('kpi-make').textContent,
-    kpiPub: document.getElementById('kpi-pub').textContent,
-    kpiDue: document.getElementById('kpi-due').textContent,
-    pipeline: document.getElementById('pipeline-body').innerHTML,
-    pipelinePct: document.getElementById('pipeline-pct').textContent,
-    platformNum: document.getElementById('platform-total').textContent,
-    platformBody: document.getElementById('platform-body').innerHTML,
-    calTable: document.getElementById('calendar-table-wrap').innerHTML,
-    calKanban: document.getElementById('calendar-kanban').innerHTML,
-    perfBody: document.getElementById('perf-body').innerHTML,
-    actionsBody: document.getElementById('actions-body').innerHTML,
-    splitChips: document.getElementById('split-chips').innerHTML,
-  };
 
   function showToast(msg) {
     toast.textContent = msg;
@@ -1064,112 +1030,6 @@ tbody tr:hover td{background:rgba(255,255,255,.62)}
     });
   }
   bindCopyButtons();
-
-  /* Client-Side Demo Preview Toggle (Read-Only, Never Modifies CSVs) */
-  function renderDemo() {
-    document.getElementById('kpi-all').textContent = '8';
-    document.getElementById('kpi-make').textContent = '3';
-    document.getElementById('kpi-pub').textContent = '3';
-    document.getElementById('kpi-due').textContent = '4';
-    document.getElementById('pipeline-pct').textContent = '38% Published';
-    document.getElementById('pipeline-body').innerHTML = `
-      <div class="capsule-chart">
-        <div class="capsule-col"><span class="capsule-val">1</span><div class="capsule-track"><div class="capsule-fill" style="height:34%"></div></div><span class="capsule-lbl">Planned</span></div>
-        <div class="capsule-col"><span class="capsule-val">2</span><div class="capsule-track"><div class="capsule-fill" style="height:68%"></div></div><span class="capsule-lbl">Drafting</span></div>
-        <div class="capsule-col"><span class="capsule-val">1</span><div class="capsule-track"><div class="capsule-fill" style="height:34%"></div></div><span class="capsule-lbl">Ready</span></div>
-        <div class="capsule-col"><span class="capsule-val">1</span><div class="capsule-track"><div class="capsule-fill" style="height:34%"></div></div><span class="capsule-lbl">Scheduled</span></div>
-        <div class="capsule-col"><span class="capsule-val">3</span><div class="capsule-track"><div class="capsule-fill" style="height:100%"></div></div><span class="capsule-lbl">Published</span></div>
-      </div>`;
-    document.getElementById('platform-total').textContent = '8';
-    document.getElementById('platform-body').innerHTML = `
-      <div class="dark-bars">
-        <div class="dark-bar-row"><div class="dark-bar-head"><span>X</span><b>3 · 38%</b></div><div class="dark-bar-track"><i style="width:38%"></i></div></div>
-        <div class="dark-bar-row"><div class="dark-bar-head"><span>Medium</span><b>2 · 25%</b></div><div class="dark-bar-track"><i style="width:25%"></i></div></div>
-        <div class="dark-bar-row"><div class="dark-bar-head"><span>LinkedIn</span><b>2 · 25%</b></div><div class="dark-bar-track"><i style="width:25%"></i></div></div>
-        <div class="dark-bar-row"><div class="dark-bar-head"><span>YouTube</span><b>1 · 12%</b></div><div class="dark-bar-track"><i style="width:12%"></i></div></div>
-      </div>`;
-    document.getElementById('calendar-table-wrap').innerHTML = `
-      <div class="table-wrap"><table>
-        <thead><tr><th>Content</th><th>Platform</th><th>Planned Date</th><th>Status</th><th>Draft</th></tr></thead>
-        <tbody>
-          <tr data-platform="X"><td><b>Local-first agent workflow thread</b><span class="record-id">DEMO-001</span></td><td>X</td><td>Today <span class="time-pill today">Today</span></td><td><span class="badge warn">Scheduled</span></td><td>workspace/drafts/demo-001.md</td></tr>
-          <tr data-platform="Medium"><td><b>Why structured Markdown beats chat memory</b><span class="record-id">DEMO-002</span></td><td>Medium</td><td>+2 days <span class="time-pill soon">Next 7d</span></td><td><span class="badge warn">Ready</span></td><td>workspace/drafts/demo-002.md</td></tr>
-          <tr data-platform="LinkedIn"><td><b>Weekly build retrospective carousel</b><span class="record-id">DEMO-003</span></td><td>LinkedIn</td><td>+4 days <span class="time-pill soon">Next 7d</span></td><td><span class="badge active">Drafting</span></td><td>workspace/drafts/demo-003.md</td></tr>
-          <tr data-platform="YouTube"><td><b>5-minute workspace walkthrough script</b><span class="record-id">DEMO-004</span></td><td>YouTube</td><td>+6 days <span class="time-pill soon">Next 7d</span></td><td><span class="badge neutral">Planned</span></td><td>Not created</td></tr>
-        </tbody>
-      </table></div>`;
-    document.getElementById('calendar-kanban').innerHTML = `
-      <div class="kanban-col"><div class="kanban-head"><span>Planned & Drafting</span><span>2</span></div>
-        <div class="kanban-item" data-platform="LinkedIn"><b>Weekly build retrospective carousel</b><div class="kanban-meta"><span>LinkedIn</span><span>Drafting</span></div></div>
-        <div class="kanban-item" data-platform="YouTube"><b>5-minute workspace walkthrough script</b><div class="kanban-meta"><span>YouTube</span><span>Planned</span></div></div>
-      </div>
-      <div class="kanban-col"><div class="kanban-head"><span>Ready</span><span>1</span></div>
-        <div class="kanban-item" data-platform="Medium"><b>Why structured Markdown beats chat memory</b><div class="kanban-meta"><span>Medium</span><span>Ready</span></div></div>
-      </div>
-      <div class="kanban-col"><div class="kanban-head"><span>Scheduled</span><span>1</span></div>
-        <div class="kanban-item" data-platform="X"><b>Local-first agent workflow thread</b><div class="kanban-meta"><span>X</span><span>Scheduled</span></div></div>
-      </div>`;
-    document.getElementById('perf-body').innerHTML = `
-      <div class="table-wrap"><table>
-        <thead><tr><th>Content</th><th>Platform</th><th>Observed</th><th>Basis</th><th>Views</th><th>Reads</th><th>Likes</th><th>Clicks</th><th>Source</th></tr></thead>
-        <tbody>
-          <tr data-platform="X"><td><b>Launch announcement thread</b><span class="record-id">PERF-DEMO-1</span></td><td>X</td><td>2026-11-20</td><td>Cumulative</td><td>14,280</td><td>N/A</td><td>412</td><td>286</td><td>x-export.csv</td></tr>
-          <tr data-platform="Medium"><td><b>Spec-driven content systems deep dive</b><span class="record-id">PERF-DEMO-2</span></td><td>Medium</td><td>2026-11-21</td><td>Cumulative</td><td>3,940</td><td>1,620</td><td>184</td><td>95</td><td>medium-stats.csv</td></tr>
-          <tr data-platform="LinkedIn"><td><b>Behind the scenes: local CSV ops</b><span class="record-id">PERF-DEMO-3</span></td><td>LinkedIn</td><td>2026-11-22</td><td>Period</td><td>5,120</td><td>N/A</td><td>139</td><td>74</td><td>linkedin-weekly.xlsx</td></tr>
-        </tbody>
-      </table></div>`;
-    document.getElementById('actions-body').innerHTML = `
-      <ol class="actions-list">
-        <li class="action-row"><div class="action-left"><span class="action-idx">1</span><span class="action-text">Confirm whether “Local-first agent workflow thread” was actually published to X today.</span></div><button class="copy-btn" data-prompt='Record that "Local-first agent workflow thread" on X was published today.'>Copy Prompt</button></li>
-        <li class="action-row"><div class="action-left"><span class="action-idx">2</span><span class="action-text">Finish and review the LinkedIn draft “Weekly build retrospective carousel”.</span></div><button class="copy-btn" data-prompt='Review and polish the LinkedIn draft "Weekly build retrospective carousel".'>Copy Prompt</button></li>
-        <li class="action-row"><div class="action-left"><span class="action-idx">3</span><span class="action-text">Review 14,280 views on X before planning next week’s follow-up thread.</span></div><button class="copy-btn" data-prompt='Review last week results and recommend what to repeat next week.'>Copy Prompt</button></li>
-      </ol>`;
-    document.getElementById('split-chips').innerHTML = `
-      <button class="split-chip active" data-platform="ALL">All</button>
-      <button class="split-chip" data-platform="X">X</button>
-      <button class="split-chip" data-platform="Medium">Medium</button>
-      <button class="split-chip" data-platform="LinkedIn">LinkedIn</button>
-      <button class="split-chip" data-platform="YouTube">YouTube</button>`;
-    activePlatform = 'ALL';
-    splitLabel.textContent = 'All Platforms';
-    bindSplitChips();
-    bindCopyButtons();
-  }
-
-  function restoreLive() {
-    document.getElementById('kpi-all').textContent = LIVE_HTML.kpiAll;
-    document.getElementById('kpi-make').textContent = LIVE_HTML.kpiMake;
-    document.getElementById('kpi-pub').textContent = LIVE_HTML.kpiPub;
-    document.getElementById('kpi-due').textContent = LIVE_HTML.kpiDue;
-    document.getElementById('pipeline-body').innerHTML = LIVE_HTML.pipeline;
-    document.getElementById('pipeline-pct').textContent = LIVE_HTML.pipelinePct;
-    document.getElementById('platform-total').textContent = LIVE_HTML.platformNum;
-    document.getElementById('platform-body').innerHTML = LIVE_HTML.platformBody;
-    document.getElementById('calendar-table-wrap').innerHTML = LIVE_HTML.calTable;
-    document.getElementById('calendar-kanban').innerHTML = LIVE_HTML.calKanban;
-    document.getElementById('perf-body').innerHTML = LIVE_HTML.perfBody;
-    document.getElementById('actions-body').innerHTML = LIVE_HTML.actionsBody;
-    document.getElementById('split-chips').innerHTML = LIVE_HTML.splitChips;
-    activePlatform = 'ALL';
-    splitLabel.textContent = 'All Platforms';
-    bindSplitChips();
-    bindCopyButtons();
-    applyFilters();
-  }
-
-  demoBtn.addEventListener('click', () => {
-    demoMode = !demoMode;
-    demoBtn.classList.toggle('active', demoMode);
-    demoBtn.textContent = demoMode ? 'Exit Demo' : 'Demo Preview';
-    demoBanner.classList.toggle('show', demoMode);
-    if (demoMode) {
-      renderDemo();
-      showToast('Showing read-only demo data');
-    } else {
-      restoreLive();
-      showToast('Returned to live workspace files');
-    }
-  });
 })();
 </script>
 </body>
