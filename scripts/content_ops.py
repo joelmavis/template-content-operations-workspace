@@ -896,28 +896,44 @@ tbody tr:hover td{background:rgba(255,255,255,.62)}
 .time-pill.overdue{background:var(--danger-bg);color:var(--danger-ink)}
 .time-pill.today{background:var(--warn-bg);color:var(--warn-ink)}
 .time-pill.soon{background:var(--good-bg);color:var(--good-ink)}
-/* Kanban View */
+/* Kanban View & Drag-and-Drop */
 .kanban{display:none;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
 .kanban.show{display:grid}
 .kanban-col{
   background:rgba(255,255,255,.52);
-  border:1px solid rgba(255,255,255,.8);
+  border:1.5px solid rgba(255,255,255,.82);
   border-radius:16px;
   padding:12px;
   display:flex;
   flex-direction:column;
   gap:8px;
+  min-height:140px;
+  transition:border-color .2s ease,background .2s ease,box-shadow .2s ease;
+}
+.kanban-col.drag-over{
+  border-color:var(--accent);
+  border-style:dashed;
+  background:rgba(255,248,242,.86);
+  box-shadow:inset 0 0 0 2px rgba(198,118,71,.12);
 }
 .kanban-head{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700;color:var(--ink-soft);margin-bottom:4px}
 .kanban-item{
   background:#fff;
   border-radius:12px;
   padding:10px 11px;
-  border:1px solid rgba(135,115,104,.12);
+  border:1px solid rgba(135,115,104,.14);
   box-shadow:0 3px 10px rgba(102,65,42,.05);
+  cursor:grab;
+  transition:transform .18s ease,box-shadow .18s ease,opacity .18s ease,border-color .18s ease;
 }
+.kanban-item:hover{border-color:rgba(198,118,71,.38);box-shadow:0 6px 16px rgba(102,65,42,.1)}
+.kanban-item.dragging{opacity:.45;cursor:grabbing;transform:scale(.98)}
+.kanban-item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.drag-grip{color:var(--muted);opacity:.45;font-size:12px;letter-spacing:-1px;user-select:none;flex:0 0 auto;cursor:grab}
+.kanban-item:hover .drag-grip,.action-row:hover .drag-grip,tbody tr:hover .drag-grip{opacity:.9;color:var(--accent)}
 .kanban-item b{display:block;font-size:12.5px;margin-bottom:4px}
 .kanban-meta{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.kanban-empty{font-size:12px;color:var(--muted);padding:6px 2px}
 /* Next Actions List */
 .actions-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
 .action-row{
@@ -928,8 +944,54 @@ tbody tr:hover td{background:rgba(255,255,255,.62)}
   padding:11px 14px;
   border-radius:14px;
   background:rgba(255,255,255,.76);
-  border:1px solid rgba(255,255,255,.92);
+  border:1.5px solid rgba(255,255,255,.92);
+  cursor:grab;
+  transition:border-color .18s ease,transform .18s ease,opacity .18s ease,box-shadow .18s ease;
 }
+.action-row.dragging{opacity:.45;cursor:grabbing}
+.action-row.drag-over-row{border-color:var(--accent);box-shadow:0 0 0 2px rgba(198,118,71,.16)}
+/* Sortable & Draggable Performance Table */
+#perf-body th{cursor:pointer;user-select:none}
+#perf-body th:hover{color:var(--accent)}
+#perf-body tbody tr{cursor:grab;transition:opacity .18s ease,background .18s ease}
+#perf-body tbody tr.dragging{opacity:.45}
+#perf-body tbody tr.drag-over-row td{border-top:2px solid var(--accent)}
+/* Floating Sync Bar */
+.sync-bar{
+  position:fixed;
+  left:50%;
+  bottom:24px;
+  transform:translate(-50%, 16px);
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:10px 14px 10px 18px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#2a1f19,#14100e);
+  color:#faf3ee;
+  border:1px solid rgba(240,180,136,.24);
+  box-shadow:0 18px 44px rgba(24,15,10,.34);
+  font-size:12.5px;
+  opacity:0;
+  pointer-events:none;
+  transition:all .28s cubic-bezier(.22,1,.36,1);
+  z-index:95;
+  max-width:92vw;
+}
+.sync-bar.show{opacity:1;pointer-events:auto;transform:translate(-50%, 0)}
+.sync-dot{width:8px;height:8px;border-radius:999px;background:#e39b67;flex:0 0 auto}
+.sync-btn{
+  border:0;
+  border-radius:999px;
+  padding:6px 13px;
+  font:650 12px var(--font);
+  cursor:pointer;
+  transition:all .2s ease;
+}
+.sync-btn.primary{background:linear-gradient(135deg,#df9866,#c67647);color:#fff}
+.sync-btn.primary:hover{filter:brightness(1.08)}
+.sync-btn.ghost{background:rgba(255,255,255,.12);color:#faf3ee}
+.sync-btn.ghost:hover{background:rgba(255,255,255,.22)}
 .action-left{display:flex;align-items:flex-start;gap:10px;min-width:0}
 .action-idx{
   width:24px;
@@ -1203,6 +1265,221 @@ JS = '''<script>
     });
   }
   bindCopyButtons();
+
+  /* Drag-and-Drop: Calendar Kanban Board + Sync Prompt Bar */
+  const pendingMoves = new Map();
+  const syncBar = document.getElementById('sync-bar');
+  const syncText = document.getElementById('sync-text');
+  const syncCopyBtn = document.getElementById('sync-copy');
+  const syncResetBtn = document.getElementById('sync-reset');
+  let draggedCard = null;
+
+  function updateKanbanCounts() {
+    document.querySelectorAll('.kanban-col').forEach((col) => {
+      const items = col.querySelectorAll('.kanban-item');
+      const countEl = col.querySelector('.kanban-count');
+      if (countEl) countEl.textContent = String(items.length);
+      let emptyEl = col.querySelector('.kanban-empty');
+      if (items.length === 0 && !emptyEl) {
+        emptyEl = document.createElement('div');
+        emptyEl.className = 'kanban-empty';
+        emptyEl.textContent = 'Drop card here';
+        col.appendChild(emptyEl);
+      } else if (items.length > 0 && emptyEl) {
+        emptyEl.remove();
+      }
+    });
+  }
+
+  function updateSyncBar() {
+    if (!syncBar) return;
+    if (pendingMoves.size === 0) {
+      syncBar.classList.remove('show');
+      return;
+    }
+    syncText.textContent = `${pendingMoves.size} status change${pendingMoves.size > 1 ? 's' : ''} ready to sync to CSV`;
+    syncBar.classList.add('show');
+  }
+
+  function syncTableBadge(contentId, newStatus) {
+    const row = document.querySelector(`tr[data-id="${CSS.escape(contentId)}"]`);
+    if (!row) return;
+    const badgeEl = row.querySelector('.badge');
+    if (!badgeEl) return;
+    badgeEl.textContent = newStatus;
+    badgeEl.className = 'badge ' + (newStatus === 'Ready' ? 'warn' : newStatus === 'Drafting' ? 'active' : 'neutral');
+  }
+
+  document.querySelectorAll('.kanban-item[draggable="true"]').forEach((item) => {
+    item.addEventListener('dragstart', (e) => {
+      draggedCard = item;
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', item.dataset.id || '');
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      document.querySelectorAll('.kanban-col.drag-over').forEach((c) => c.classList.remove('drag-over'));
+      draggedCard = null;
+    });
+  });
+
+  document.querySelectorAll('.kanban-col[data-col-status]').forEach((col) => {
+    col.addEventListener('dragover', (e) => {
+      if (!draggedCard) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', (e) => {
+      if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over');
+    });
+    col.addEventListener('drop', (e) => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (!draggedCard) return;
+      const targetStatus = col.dataset.colStatus;
+      const origStatus = draggedCard.dataset.origStatus || draggedCard.dataset.status;
+      const contentId = draggedCard.dataset.id;
+      const title = draggedCard.dataset.title || contentId;
+      col.appendChild(draggedCard);
+      draggedCard.dataset.status = targetStatus;
+      updateKanbanCounts();
+      syncTableBadge(contentId, targetStatus);
+      if (targetStatus === origStatus) {
+        pendingMoves.delete(contentId);
+      } else {
+        pendingMoves.set(contentId, { id: contentId, title, to: targetStatus });
+      }
+      updateSyncBar();
+    });
+  });
+
+  if (syncCopyBtn) {
+    syncCopyBtn.addEventListener('click', async () => {
+      const parts = Array.from(pendingMoves.values()).map((m) => `set ${m.id} ("${m.title}") to ${m.to}`);
+      const prompt = `Update workspace/content-calendar.csv status changes: ${parts.join('; ')}. Then run python3 scripts/validate_workspace.py and python3 scripts/render_dashboard.py.`;
+      try {
+        await navigator.clipboard.writeText(prompt);
+        showToast('Sync prompt copied — paste into Agent chat');
+      } catch {
+        showToast(prompt);
+      }
+    });
+  }
+
+  if (syncResetBtn) {
+    syncResetBtn.addEventListener('click', () => {
+      document.querySelectorAll('.kanban-item[data-orig-col]').forEach((item) => {
+        const origCol = document.querySelector(`.kanban-col[data-col-status="${item.dataset.origCol}"]`);
+        if (origCol) origCol.appendChild(item);
+        const origStatus = item.dataset.origStatus || '';
+        item.dataset.status = origStatus;
+        syncTableBadge(item.dataset.id, origStatus);
+      });
+      pendingMoves.clear();
+      updateKanbanCounts();
+      updateSyncBar();
+      showToast('Board changes reset');
+    });
+  }
+
+  /* Drag-to-Reorder: Next Actions */
+  const actionsList = document.querySelector('#actions-body .actions-list');
+  let draggedAction = null;
+  if (actionsList) {
+    const renumberActions = () => {
+      actionsList.querySelectorAll('.action-row .action-idx').forEach((el, idx) => {
+        el.textContent = String(idx + 1);
+      });
+    };
+    actionsList.querySelectorAll('.action-row').forEach((row) => {
+      row.setAttribute('draggable', 'true');
+      row.addEventListener('dragstart', (e) => {
+        draggedAction = row;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      row.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        actionsList.querySelectorAll('.drag-over-row').forEach((r) => r.classList.remove('drag-over-row'));
+        draggedAction = null;
+      });
+      row.addEventListener('dragover', (e) => {
+        if (!draggedAction || draggedAction === row) return;
+        e.preventDefault();
+        row.classList.add('drag-over-row');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drag-over-row'));
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('drag-over-row');
+        if (!draggedAction || draggedAction === row) return;
+        const rect = row.getBoundingClientRect();
+        const after = e.clientY > rect.top + rect.height / 2;
+        actionsList.insertBefore(draggedAction, after ? row.nextSibling : row);
+        renumberActions();
+      });
+    });
+  }
+
+  /* Drag-to-Reorder + Click-Header Sort: Performance Table */
+  const perfTable = document.querySelector('#perf-body table');
+  if (perfTable) {
+    const tbody = perfTable.querySelector('tbody');
+    let draggedPerfRow = null;
+    if (tbody) {
+      tbody.querySelectorAll('tr').forEach((row) => {
+        row.setAttribute('draggable', 'true');
+        row.addEventListener('dragstart', (e) => {
+          draggedPerfRow = row;
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => {
+          row.classList.remove('dragging');
+          tbody.querySelectorAll('.drag-over-row').forEach((r) => r.classList.remove('drag-over-row'));
+          draggedPerfRow = null;
+        });
+        row.addEventListener('dragover', (e) => {
+          if (!draggedPerfRow || draggedPerfRow === row) return;
+          e.preventDefault();
+          row.classList.add('drag-over-row');
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('drag-over-row'));
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over-row');
+          if (!draggedPerfRow || draggedPerfRow === row) return;
+          const rect = row.getBoundingClientRect();
+          const after = e.clientY > rect.top + rect.height / 2;
+          tbody.insertBefore(draggedPerfRow, after ? row.nextSibling : row);
+        });
+      });
+
+      const parseCell = (text) => {
+        const clean = (text || '').trim();
+        if (clean === 'N/A' || clean === '') return -Infinity;
+        const num = Number(clean.replace(/,/g, ''));
+        return Number.isNaN(num) ? clean.toLowerCase() : num;
+      };
+
+      perfTable.querySelectorAll('thead th').forEach((th, colIdx) => {
+        th.addEventListener('click', () => {
+          const asc = th.dataset.sortDir !== 'asc';
+          th.dataset.sortDir = asc ? 'asc' : 'desc';
+          const rows = Array.from(tbody.querySelectorAll('tr'));
+          rows.sort((a, b) => {
+            const va = parseCell(a.children[colIdx]?.textContent);
+            const vb = parseCell(b.children[colIdx]?.textContent);
+            if (va === vb) return 0;
+            return asc ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+          });
+          rows.forEach((r) => tbody.appendChild(r));
+        });
+      });
+    }
+  }
 })();
 </script>'''
 
@@ -1233,7 +1510,7 @@ def render_dashboard(workspace, today=None):
     upcoming.sort(key=lambda row: (row["planned_date"] or "9999-99-99", row["title"], row["platform"]))
     if upcoming:
         body_rows = ''.join(
-            f'<tr data-platform="{escape(row["platform"])}">'
+            f'<tr data-id="{escape(row["content_id"])}" data-platform="{escape(row["platform"])}">'
             f'<td><b>{escape(row["title"])}</b><span class="record-id">Internal content ID: {escape(row["content_id"])}</span></td>'
             f'<td>{escape(row["platform"])}</td>'
             f'<td>{escape(row["planned_date"] or "Not scheduled")}{timing_pill(row["planned_date"], row["status"], today)}</td>'
@@ -1248,20 +1525,20 @@ def render_dashboard(workspace, today=None):
             f'<tbody>{body_rows}</tbody></table></div>'
         )
         kanban_groups = [
-            ("Idea & Planned", [r for r in upcoming if r["status"] in {"Idea", "Planned"}]),
-            ("Drafting", [r for r in upcoming if r["status"] == "Drafting"]),
-            ("Ready & Scheduled", [r for r in upcoming if r["status"] in {"Ready", "Scheduled"}]),
+            ("Idea & Planned", "Planned", [r for r in upcoming if r["status"] in {"Idea", "Planned"}]),
+            ("Drafting", "Drafting", [r for r in upcoming if r["status"] == "Drafting"]),
+            ("Ready & Scheduled", "Ready", [r for r in upcoming if r["status"] in {"Ready", "Scheduled"}]),
         ]
         kanban_cols = []
-        for col_name, items in kanban_groups:
+        for col_name, col_status, items in kanban_groups:
             cards_html = ''.join(
-                f'<div class="kanban-item" data-platform="{escape(r["platform"])}">'
-                f'<b>{escape(r["title"])}</b>'
+                f'<div class="kanban-item" draggable="true" data-id="{escape(r["content_id"])}" data-title="{escape(r["title"], quote=True)}" data-status="{escape(r["status"])}" data-orig-status="{escape(r["status"])}" data-orig-col="{col_status}" data-platform="{escape(r["platform"])}">'
+                f'<div class="kanban-item-top"><b>{escape(r["title"])}</b><span class="drag-grip" aria-hidden="true">⋮⋮</span></div>'
                 f'<div class="kanban-meta"><span>{escape(r["platform"])}</span><span>{escape(r["planned_date"] or "Unscheduled")}</span></div>'
                 f'</div>'
                 for r in items
-            ) or '<div class="muted">None</div>'
-            kanban_cols.append(f'<div class="kanban-col"><div class="kanban-head"><span>{col_name}</span><span>{len(items)}</span></div>{cards_html}</div>')
+            ) or '<div class="kanban-empty">Drop card here</div>'
+            kanban_cols.append(f'<div class="kanban-col" data-col-status="{col_status}"><div class="kanban-head"><span>{col_name}</span><span class="kanban-count">{len(items)}</span></div>{cards_html}</div>')
         kanban_html = ''.join(kanban_cols)
     else:
         calendar_html = empty(
@@ -1305,7 +1582,7 @@ def render_dashboard(workspace, today=None):
     action_items = next_actions(calendar, performance)
     actions_html = '<ol class="actions-list">' + ''.join(
         f'<li class="action-row">'
-        f'<div class="action-left"><span class="action-idx">{idx}</span><span class="action-text">{escape(text)}</span></div>'
+        f'<div class="action-left"><span class="drag-grip" aria-hidden="true">⋮⋮</span><span class="action-idx">{idx}</span><span class="action-text">{escape(text)}</span></div>'
         f'<button type="button" class="copy-btn" data-prompt="{escape(prompt, quote=True)}">Copy Prompt</button>'
         f'</li>'
         for idx, (text, prompt) in enumerate(action_items, 1)
@@ -1499,6 +1776,12 @@ def render_dashboard(workspace, today=None):
       <span>Content Operations Workspace · Generated from local workspace files</span>
     </footer>
   </main>
+</div>
+<div class="sync-bar" id="sync-bar" role="region" aria-label="Pending status changes">
+  <span class="sync-dot"></span>
+  <span id="sync-text">0 status changes ready to sync</span>
+  <button type="button" class="sync-btn ghost" id="sync-reset">Reset</button>
+  <button type="button" class="sync-btn primary" id="sync-copy">Copy Sync Prompt</button>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 {JS}
