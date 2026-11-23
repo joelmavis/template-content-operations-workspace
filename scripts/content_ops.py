@@ -702,20 +702,68 @@ body{
   display:grid;
   place-items:center;
   cursor:pointer;
-  font-size:13px;
+  font-size:14px;
+  font-weight:600;
+  line-height:1;
+  flex:0 0 auto;
   transition:all .2s ease;
 }
 .expand-btn:hover{background:#fff;color:var(--ink);transform:scale(1.06)}
 /* Expanded Mode (03 Expand in Place) */
 .bento.has-expanded .card:not(.is-expanded){
   grid-column:span 3;
-  padding:14px;
+  padding:16px;
   cursor:pointer;
-  opacity:.86;
-  max-height:132px;
+  opacity:.88;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  min-height:124px;
 }
-.bento.has-expanded .card:not(.is-expanded) .hide-mini{display:none}
+.bento.has-expanded .card:not(.is-expanded) .hide-mini,
+.bento.has-expanded .card:not(.is-expanded) .view-switch{display:none}
+.bento.has-expanded .card:not(.is-expanded) .card-head{
+  margin-bottom:8px;
+  gap:8px;
+  align-items:flex-start;
+}
+.bento.has-expanded .card:not(.is-expanded) .card-head > div:first-child{min-width:0;flex:1}
+.bento.has-expanded .card:not(.is-expanded) .card-title{
+  font-size:14px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.bento.has-expanded .card:not(.is-expanded) .card-sub{
+  font-size:11.5px;
+  line-height:1.4;
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  margin-top:4px;
+}
+.bento.has-expanded .card:not(.is-expanded) .big-stat{display:none}
+.bento.has-expanded .card:not(.is-expanded) .mini-stat-badge{
+  display:inline-flex;
+  margin-top:8px;
+}
+.bento.has-expanded .card:not(.is-expanded) .dark-hero-num{
+  font-size:24px;
+  margin:4px 0 0;
+}
 .bento.has-expanded .card:not(.is-expanded):hover{opacity:1;transform:translateY(-2px)}
+.mini-stat-badge{
+  display:none;
+  align-items:center;
+  padding:3px 9px;
+  border-radius:999px;
+  font-size:11.5px;
+  font-weight:700;
+  background:var(--accent-soft);
+  color:var(--accent);
+  width:fit-content;
+}
 .bento.has-expanded .card.is-expanded{
   grid-column:1 / -1;
   order:-1;
@@ -1371,6 +1419,7 @@ def render_dashboard(workspace, today=None):
           <div>
             <h2 class="card-title">Status Breakdown</h2>
             <p class="card-sub">Editorial pipeline stages across saved records</p>
+            <span class="mini-stat-badge">{pub_pct}</span>
           </div>
           <div class="card-head-right">
             <span class="big-stat" id="pipeline-pct">{pub_pct}</span>
